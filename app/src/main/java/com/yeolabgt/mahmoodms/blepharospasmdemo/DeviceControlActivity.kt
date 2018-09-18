@@ -60,7 +60,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private var mMSBFirst = false
     //Connecting to Multiple Devices
     private var deviceMacAddresses: Array<String>? = null
-    private var mEEGConnectedAllChannels = false
     //UI Elements - TextViews, Buttons, etc
     private var mBatteryLevel: TextView? = null
     private var mDataRate: TextView? = null
@@ -77,9 +76,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private val batteryWarning = 20
     private var dataRate: Double = 0.toDouble()
     // Tensorflow Implementation:
-    private val INPUT_DATA_FEED_KEY = "input_1"
-    private val OUTPUT_DATA_FEED_KEY = "conv1d_8/truediv"
-
     private var mTFRunModel = false
     private var mTensorFlowInferenceInterface: TensorFlowInferenceInterface? = null
     private var mOutputScoresNames: Array<String>? = null
@@ -130,9 +126,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                     waveletEnergy > 950.0 -> severity = 3.0
                 }
             }
-
-//            TODO: NOTE I AM CHANGING LABELS AS FOLLOWS:
-            /* TODO
+            /*
                 0 -> Normal/No Activity
                 1 -> Pathological Blinking
                 2 -> Eye Spasms
@@ -573,9 +567,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
                 if (AppConstant.SERVICE_MPU == service.uuid) {
                     mActBle!!.setCharacteristicNotifications(gatt, service.getCharacteristic(AppConstant.CHAR_MPU_COMBINED), true)
-                    //TODO: INITIALIZE MPU FILE HERE:
                     mMPU = DataChannel(false, true, 0)
-//                    mSaveFileMPU = null
                     createNewFileMPU()
                 }
             }
@@ -591,11 +583,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 if (characteristic.value != null) {
                     val batteryLevel = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT16, 0)
                     updateBatteryStatus(batteryLevel)
-                    Log.i(TAG, "Battery Level :: " + batteryLevel)
+                    Log.i(TAG, "Battery Level :: $batteryLevel")
                 }
             }
         } else {
-            Log.e(TAG, "onCharacteristic Read Error" + status)
+            Log.e(TAG, "onCharacteristic Read Error$status")
         }
     }
 
@@ -646,7 +638,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private fun addToGraphBuffer(dataChannel: DataChannel, graphAdapter: GraphAdapter?) {
         if (mFilterData && dataChannel.totalDataPointsReceived > 4 * mSampleRate) {
             val graphBufferLength = 4 * 250
-            //TODO: Down sample, then filter, then plot:
             val filterArray = jdownSample(dataChannel.classificationBuffer, mSampleRate)
             graphAdapter?.setSeriesHistoryDataPoints(graphBufferLength)
             val filteredData = jecgBandStopFilter(filterArray)
@@ -813,17 +804,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     }
 
     override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
-        Log.i(TAG, "onCharacteristicWrite :: Status:: " + status)
+        Log.i(TAG, "onCharacteristicWrite :: Status:: $status")
     }
 
     override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {}
 
     override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-        Log.i(TAG, "onDescriptorRead :: Status:: " + status)
+        Log.i(TAG, "onDescriptorRead :: Status:: $status")
     }
 
     override fun onError(errorMessage: String) {
-        Log.e(TAG, "Error:: " + errorMessage)
+        Log.e(TAG, "Error:: $errorMessage")
     }
 
     private fun updateConnectionState(status: String) {
@@ -853,7 +844,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             if (finalPercent <= batteryWarning) {
                 mBatteryLevel!!.setTextColor(Color.RED)
                 mBatteryLevel!!.setTypeface(null, Typeface.BOLD)
-                Toast.makeText(applicationContext, "Charge Battery, Battery Low " + status, Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, "Charge Battery, Battery Low $status", Toast.LENGTH_SHORT).show()
             } else {
                 mBatteryLevel!!.setTextColor(Color.GREEN)
                 mBatteryLevel!!.setTypeface(null, Typeface.BOLD)
@@ -901,7 +892,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private external fun jgetWaveletEnergy(data: FloatArray): Double
 
     companion object {
-        val HZ = "0 Hz"
+        const val HZ = "0 Hz"
         private val TAG = DeviceControlActivity::class.java.simpleName
         var mRedrawer: Redrawer? = null
         // Power Spectrum Graph Data:
@@ -912,14 +903,15 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         internal var mMPU: DataChannel? = null
         internal var mFilterData = false
         private var mPacketBuffer = 6
-        private var mTimestampIdxMPU = 0
         //RSSI:
-        private val RSSI_UPDATE_TIME_INTERVAL = 2000
+        private const val RSSI_UPDATE_TIME_INTERVAL = 2000
         //Save Data File
         private var mPrimarySaveDataFile: SaveDataFile? = null
         private var mTensorflowOutputsSaveFile: SaveDataFile? = null
         private var mSaveFileMPU: SaveDataFile? = null
-
+        // Tensorflow Constants:
+        private const val INPUT_DATA_FEED_KEY = "input_1"
+        private const val OUTPUT_DATA_FEED_KEY = "conv1d_8/truediv"
         init {
             System.loadLibrary("ecg-lib")
         }

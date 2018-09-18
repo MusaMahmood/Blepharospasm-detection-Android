@@ -609,16 +609,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             if (!mCh1!!.chEnabled) mCh1!!.chEnabled = true
             val mNewEEGdataBytes = characteristic.value
             getDataRateBytes(mNewEEGdataBytes.size)
-            Log.e(TAG, "Packet Size ${mNewEEGdataBytes.size}")
             mCh1!!.handleNewData(mNewEEGdataBytes)
             addToGraphBuffer(mCh1!!, mGraphAdapterCh1)
             mPrimarySaveDataFile!!.writeToDisk(mCh1!!.characteristicDataPacketBytes)
             // For every 2000 dp recieved, run classification model.
-            if (mCh1!!.totalDataPointsReceived % 1040 == 0 && mCh1!!.totalDataPointsReceived != 0) {
-                Log.e(TAG, "Total datapoints: ${mCh1!!.totalDataPointsReceived}")
-                val classifyTaskThread = Thread(mClassifyThread)
-                classifyTaskThread.start()
-            }
         }
 
         if (AppConstant.CHAR_EEG_CH2_SIGNAL == characteristic.uuid) {
@@ -690,33 +684,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val mSDS = mStimulusDelaySeconds.toInt()
             Log.d(TAG, "mSDS:" + mSDS.toString() + " second: " + second.toString())
             if (second % mSDS == 0) mMediaBeep.start()
+            if (second % 2 == 0 && second > 3) {
+                //Run Classification:
+                val classifyTaskThread = Thread(mClassifyThread)
+                classifyTaskThread.start()
+            }
             when {
                 (second == 24 * mSDS) -> {
                     // 2 mins pass (5s * 24)
                     disconnectAllBLE()
                     // TODO: Launch new ReportActivity With Report.
                 }
-            }
-        }
-    }
-
-    private fun updateTrainingPrompt(prompt: String) {
-        runOnUiThread {
-            if (mRunClassifyRoutine) {
-                trainingInstructions!!.text = prompt
-            }
-        }
-    }
-
-    private fun updateTrainingView(b: Boolean) {
-        val visibility = if (b) View.VISIBLE else View.GONE
-        runOnUiThread { trainingInstructions!!.visibility = visibility }
-    }
-
-    private fun updateTrainingPromptColor(color: Int) {
-        runOnUiThread {
-            if (mRunClassifyRoutine) {
-                trainingInstructions!!.setTextColor(color)
             }
         }
     }

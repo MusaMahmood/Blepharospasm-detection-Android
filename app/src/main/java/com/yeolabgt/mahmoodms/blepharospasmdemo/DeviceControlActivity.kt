@@ -23,6 +23,7 @@ import android.support.v4.content.FileProvider
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -155,8 +156,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         }
     }
 
-
-
     private fun enableTensorflowModel() {
         val classificationModelBinary = "opt_k3_bleph_annotate.pb"
         val classificationModelPath = Environment.getExternalStorageDirectory().absolutePath +
@@ -200,6 +199,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         Log.d(TAG, Arrays.toString(deviceMacAddresses))
         if (intent.extras != null) {
             mRunClassifyRoutine = intent.extras!!.getBoolean(MainActivity.INTENT_TRAIN_BOOLEAN)
+        }
+        if (mRunClassifyRoutine) {
+            enableTensorflowModel()
+            tensorflowClassificationSwitch.isChecked = true
         }
         val delaySecondsStringArray = intent.getStringArrayExtra(MainActivity.INTENT_DELAY_VALUE_SECONDS)
         mStimulusDelaySeconds = Integer.valueOf(delaySecondsStringArray[0])!!.toDouble()
@@ -688,11 +691,32 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             Log.d(TAG, "mSDS:" + mSDS.toString() + " second: " + second.toString())
             if (second % mSDS == 0) mMediaBeep.start()
             when {
-                (second == 5 * mSDS) -> {
+                (second == 24 * mSDS) -> {
+                    // 2 mins pass (5s * 24)
                     disconnectAllBLE()
-                    // TODO: Launch new ReportActivity
-
+                    // TODO: Launch new ReportActivity With Report.
                 }
+            }
+        }
+    }
+
+    private fun updateTrainingPrompt(prompt: String) {
+        runOnUiThread {
+            if (mRunClassifyRoutine) {
+                trainingInstructions!!.text = prompt
+            }
+        }
+    }
+
+    private fun updateTrainingView(b: Boolean) {
+        val visibility = if (b) View.VISIBLE else View.GONE
+        runOnUiThread { trainingInstructions!!.visibility = visibility }
+    }
+
+    private fun updateTrainingPromptColor(color: Int) {
+        runOnUiThread {
+            if (mRunClassifyRoutine) {
+                trainingInstructions!!.setTextColor(color)
             }
         }
     }

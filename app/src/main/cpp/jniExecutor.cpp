@@ -12,6 +12,7 @@
 #include "get_p2p.h"
 #include "count_blinks.h"
 #include "get_intensity.h"
+#include "bleph_analyze_data.h"
 
 /*Additional Includes*/
 #include <jni.h>
@@ -19,6 +20,20 @@
 
 #define  LOG_TAG "jniExecutor-cpp"
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+extern "C" {
+JNIEXPORT jdoubleArray JNICALL
+Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jblephAnalyze(
+        JNIEnv *env, jobject jobject1, jfloatArray data) {
+    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    double Y[7];
+    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    jdoubleArray m_result = env->NewDoubleArray(7);
+    bleph_analyze_data(X, &Y[0], &Y[3]);
+    env->SetDoubleArrayRegion(m_result, 0, 7, Y);
+    return m_result;
+}
+}
 
 extern "C" {
 JNIEXPORT jfloatArray JNICALL

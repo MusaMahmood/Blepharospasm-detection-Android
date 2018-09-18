@@ -30,6 +30,7 @@ import android.widget.Toast
 import android.widget.ToggleButton
 
 import com.androidplot.util.Redrawer
+import com.google.common.primitives.Floats
 import com.yeolabgt.mahmoodms.actblelibrary.ActBle
 import kotlinx.android.synthetic.main.activity_device_control.*
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface
@@ -90,7 +91,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private lateinit var mMediaBeep: MediaPlayer // Sound
     private var numberOfClassifications = 0
     // Key feature arrays
-    private val keyFeatureArray2d = Array(6) {FloatArray(60)}
+    private val keyFeatureArray2d = Array(8) {FloatArray(60)}
+    private var blephReportString: String = ""
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
@@ -113,15 +115,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val classResults = jgetClassBleph3c(outputProbReshaped)
             val outputClass = classResults[3]
             var severity = 0.0f
+            var numberBlinks = 0.0
+            var waveletEnergy = 0.0
             if (outputClass == 1.0.toFloat()) {
-                val numberBlinks = jgetNumberBlinks(inputArray)
+                numberBlinks = jgetNumberBlinks(inputArray)
                 when {
                     numberBlinks in 5.0..7.0 -> severity = 1.0f
                     numberBlinks in 8.0..11.0 -> severity = 2.0f
                     numberBlinks > 12 -> severity = 3.0f
                 }
             } else if (outputClass == 2.0.toFloat()) {
-                val waveletEnergy = jgetWaveletEnergy(inputArray)
+                waveletEnergy = jgetWaveletEnergy(inputArray)
                 when (waveletEnergy > 100) {
                     waveletEnergy < 400.0 -> severity = 1.0f
                     waveletEnergy in 400.0..950.0 -> severity = 2.0f
@@ -159,11 +163,23 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             keyFeatureArray2d[3][numberOfClassifications] = classResults[2]/2000.0f
             keyFeatureArray2d[4][numberOfClassifications] = classResults[3]
             keyFeatureArray2d[5][numberOfClassifications] = severity
+            keyFeatureArray2d[6][numberOfClassifications] = numberBlinks.toFloat()
+            keyFeatureArray2d[7][numberOfClassifications] = waveletEnergy.toFloat()
             numberOfClassifications++
             Log.e(TAG, "numberOfClassifications = $numberOfClassifications")
             if (numberOfClassifications == 59) {
                 mTensorflowOutputsSaveFile?.writeToDiskFloat(keyFeatureArray2d[0], keyFeatureArray2d[1],
                         keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
+                // TODO: Run analysis and
+                val combinedArrayConcat = Floats.concat(keyFeatureArray2d[0], keyFeatureArray2d[1],
+                        keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
+                val responseArray = jblephAnalyze(combinedArrayConcat)
+                Log.e(TAG, "Reponse: ${Arrays.toString(responseArray)}")
+                // Idx 0, 1, 2 are the counts for the corresponding classes
+                // Idx 3: Condition Most Prevalent
+                // Idx 4: Avg. Severity of Pathological Blinking
+                // Idx 5: Avg. Severity of Blepharospasm
+                // Idx 6: Probability of Apraxia (TODO: This is always zero!~)
             }
         }
     }
@@ -904,6 +920,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private external fun jgetNumberBlinks(data: FloatArray): Double
 
     private external fun jgetWaveletEnergy(data: FloatArray): Double
+
+    private external fun jblephAnalyze(data: FloatArray): DoubleArray
 
     companion object {
         const val HZ = "0 Hz"

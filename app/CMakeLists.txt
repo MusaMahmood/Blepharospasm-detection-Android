@@ -36,6 +36,7 @@ add_library( # Sets the name of the library.
                 src/main/cpp/get_p2p.cpp
                 src/main/cpp/count_blinks.cpp
                 src/main/cpp/get_intensity.cpp
+                src/main/cpp/bleph_analyze_data.cpp
 
 
                 # Executor

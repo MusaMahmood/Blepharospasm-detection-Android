@@ -78,7 +78,6 @@ android {
 dependencies {
     //Added
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-//    compile files('libs/opencsv-3.7.jar')
     implementation project(':actblelibrary')
     implementation 'com.androidplot:androidplot-core:1.5.1'
     implementation 'com.google.guava:guava:23.0-android'

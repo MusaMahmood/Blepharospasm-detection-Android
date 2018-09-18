@@ -19,11 +19,10 @@ import android.support.v4.content.ContextCompat
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.WindowManager
-import android.widget.AdapterView
-import android.widget.Button
-import android.widget.ListView
-import android.widget.Toast
+import android.widget.*
+import kotlinx.android.synthetic.main.activity_device_scan.*
 
 import java.util.ArrayList
 
@@ -34,6 +33,7 @@ import java.util.ArrayList
  */
 
 class MainActivity : Activity() {
+    private var mRunTraining = true
     private var mScanning: Boolean = false
     private var mHandler: Handler? = null
     private var mBluetoothAdapter: BluetoothAdapter? = null
@@ -123,14 +123,25 @@ class MainActivity : Activity() {
                 if (!mDeviceAddressesMAC.isEmpty()) {
                     val selectedDeviceArray = mDeviceAddressesMAC.toTypedArray()
                     val selectedDeviceNames = mDeviceNames.toTypedArray()
+                    val delaySeconds = arrayOfNulls<String>(1)
+                    delaySeconds[0] = editDelayText.text.toString()
                     val intent = Intent(this@MainActivity, DeviceControlActivity::class.java)
                     intent.putExtra(INTENT_DEVICES_KEY, selectedDeviceArray)
                     intent.putExtra(INTENT_DEVICES_NAMES, selectedDeviceNames)
+                    intent.putExtra(INTENT_DELAY_VALUE_SECONDS, delaySeconds)
+                    intent.putExtra(INTENT_TRAIN_BOOLEAN, mRunTraining)
                     startActivity(intent)
                 } else {
                     Toast.makeText(this@MainActivity, "No Devices Selected!", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    fun onCheckboxClicked(view: View) {
+        val checked = (view as CheckBox).isChecked
+        when (view.getId()) {
+            R.id.trainingCheckbox -> mRunTraining = checked
         }
     }
 
@@ -224,11 +235,13 @@ class MainActivity : Activity() {
 
     companion object {
         private val TAG = DeviceControlActivity::class.java.simpleName
-        private val MULTIPLE_PERMISSIONS_REQUEST = 139
-        private val SCAN_PERIOD: Long = 10000
-        private val REQUEST_ENABLE_BT = 12
-        val INTENT_DEVICES_KEY = "DEVICES_TO_PARSE"
-        val INTENT_DEVICES_NAMES = "DEVICE_NAMES_TO_PARSE"
+        const val MULTIPLE_PERMISSIONS_REQUEST = 139
+        const val SCAN_PERIOD: Long = 10000
+        const val REQUEST_ENABLE_BT = 12
+        const val INTENT_DEVICES_KEY = "DEVICES_TO_PARSE"
+        const val INTENT_DEVICES_NAMES = "DEVICE_NAMES_TO_PARSE"
+        const val INTENT_TRAIN_BOOLEAN = "BOOLEAN_TO_PARSE"
+        const val INTENT_DELAY_VALUE_SECONDS = "DELAY_VALUE_SECONDS"
         val PERMISSIONS_LIST = arrayOf(
                 Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE,

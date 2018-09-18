@@ -180,9 +180,9 @@ constructor(directory: String, fileName: String, byteResolution: Int, increment:
                 else
                     writeCSVValue[dp][ch + 1] = floats[ch][dp].toString() + ""
             }
-            if (this.includeClass) {
-                writeCSVValue[dp][columns - 1] = DeviceControlActivity.mSSVEPClass.toString() + ""
-            }
+//            if (this.includeClass) {
+//                writeCSVValue[dp][columns - 1] = DeviceControlActivity.mSSVEPClass.toString() + ""
+//            }
             csvWriter!!.writeNext(writeCSVValue[dp], false)
             this.mLinesWrittenTotal++
             this.mLinesWrittenCurrentFile++
@@ -210,9 +210,9 @@ constructor(directory: String, fileName: String, byteResolution: Int, increment:
                 else
                     writeCSVValue[dp][ch + 1] = doubles[ch][dp].toString() + ""
             }
-            if (this.includeClass) {
-                writeCSVValue[dp][columns - 1] = DeviceControlActivity.mSSVEPClass.toString() + ""
-            }
+//            if (this.includeClass) {
+//                writeCSVValue[dp][columns - 1] = DeviceControlActivity.mSSVEPClass.toString() + ""
+//            }
             csvWriter!!.writeNext(writeCSVValue[dp], false)
             this.mLinesWrittenTotal++
             this.mLinesWrittenCurrentFile++

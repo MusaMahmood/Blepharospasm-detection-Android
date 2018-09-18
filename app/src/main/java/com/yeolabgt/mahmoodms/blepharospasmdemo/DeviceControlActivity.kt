@@ -13,6 +13,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -78,7 +79,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     // Tensorflow Implementation:
     private val INPUT_DATA_FEED_KEY = "input_1"
     private val OUTPUT_DATA_FEED_KEY = "conv1d_8/truediv"
-    private val KEEP_PROB_FEED_KEY = "keep_prob"
 
     private var mTFRunModel = false
     private var mTensorFlowInferenceInterface: TensorFlowInferenceInterface? = null
@@ -88,6 +88,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private var mTensorflowOutputXDim = 1L
     private var mTensorflowOutputYDim = 1L
     private var mNumberOfClassifierCalls = 0
+    // Classification Routine ~2 mins:
+    private var mRunClassifyRoutine: Boolean = false
+    private var mStimulusDelaySeconds = 0.0
+    private lateinit var mMediaBeep: MediaPlayer // Sound
 
 
     private val mTimeStamp: String
@@ -200,6 +204,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         Log.d(TAG, "Device Names: " + Arrays.toString(deviceDisplayNames))
         Log.d(TAG, "Device MAC Addresses: " + Arrays.toString(deviceMacAddresses))
         Log.d(TAG, Arrays.toString(deviceMacAddresses))
+        if (intent.extras != null) {
+            mRunClassifyRoutine = intent.extras!!.getBoolean(MainActivity.INTENT_TRAIN_BOOLEAN)
+        }
+        val delaySecondsStringArray = intent.getStringArrayExtra(MainActivity.INTENT_DELAY_VALUE_SECONDS)
+        mStimulusDelaySeconds = Integer.valueOf(delaySecondsStringArray[0])!!.toDouble()
         //Set up action bar:
         if (actionBar != null) {
             actionBar!!.setDisplayHomeAsUpEnabled(true)
@@ -218,6 +227,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         ab.subtitle = mDeviceAddress
         //Initialize Bluetooth
         if (!mBleInitializedBoolean) initializeBluetoothArray()
+        // Load Media:
+        mMediaBeep = MediaPlayer.create(this, R.raw.beep_01a)
         mLastTime = System.currentTimeMillis()
         //UI Listeners
 //        mChannelSelect = findViewById(R.id.toggleButtonGraph)
@@ -633,7 +644,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     }
 
     private fun addToGraphBuffer(dataChannel: DataChannel, graphAdapter: GraphAdapter?) {
-        if (mFilterData && dataChannel.totalDataPointsReceived > 4 * mSampleRate/* && mSampleRate < 1000*/) {
+        if (mFilterData && dataChannel.totalDataPointsReceived > 4 * mSampleRate) {
             val graphBufferLength = 4 * 250
             //TODO: Down sample, then filter, then plot:
             val filterArray = jdownSample(dataChannel.classificationBuffer, mSampleRate)
@@ -653,6 +664,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                         graphAdapter!!.addDataPointTimeDomain(DataChannel.bytesToDouble(dataChannel.dataBuffer!![3 * i],
                                 dataChannel.dataBuffer!![3 * i + 1], dataChannel.dataBuffer!![3 * i + 2]),
                                 dataChannel.totalDataPointsReceived - dataChannel.dataBuffer!!.size / 3 + i)
+                        if (mRunClassifyRoutine) {
+                            for (j in 0 until graphAdapter.sampleRate / 250) {
+                                updateTrainingRoutine(dataChannel.totalDataPointsReceived - dataChannel.dataBuffer!!.size / 3 + i + j)
+                            }
+                        }
                         i += graphAdapter.sampleRate / 250
                     }
                 } else if (mPrimarySaveDataFile!!.resolutionBits == 16) {
@@ -661,6 +677,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                         graphAdapter!!.addDataPointTimeDomain(DataChannel.bytesToDouble(dataChannel.dataBuffer!![2 * i],
                                 dataChannel.dataBuffer!![2 * i + 1]),
                                 dataChannel.totalDataPointsReceived - dataChannel.dataBuffer!!.size / 2 + i)
+                        if (mRunClassifyRoutine) {
+                            for (j in 0 until graphAdapter.sampleRate / 250) {
+                                updateTrainingRoutine(dataChannel.totalDataPointsReceived - dataChannel.dataBuffer!!.size / 2 + i + j)
+                            }
+                        }
                         i += graphAdapter.sampleRate / 250
                     }
                 }
@@ -669,16 +690,20 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         dataChannel.resetBuffer()
     }
 
-    private fun addToGraphBufferMPU(dataChannel: DataChannel) {
-        if (dataChannel.dataBuffer != null) {
-            for (i in 0 until dataChannel.dataBuffer!!.size / 12) {
-//                mGraphAdapterMotionAX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i], dataChannel.dataBuffer!![12 * i + 1]), mTimestampIdxMPU)
-//                mGraphAdapterMotionAY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 2], dataChannel.dataBuffer!![12 * i + 3]), mTimestampIdxMPU)
-//                mGraphAdapterMotionAZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 4], dataChannel.dataBuffer!![12 * i + 5]), mTimestampIdxMPU)
-                mTimestampIdxMPU += 1
+    private fun updateTrainingRoutine(dataPoints: Int) {
+        if (dataPoints % mSampleRate == 0) {
+            val second = dataPoints / mSampleRate
+            val mSDS = mStimulusDelaySeconds.toInt()
+            Log.d(TAG, "mSDS:" + mSDS.toString() + " second: " + second.toString())
+            if (second % mSDS == 0) mMediaBeep.start()
+            when {
+                (second == 5 * mSDS) -> {
+                    disconnectAllBLE()
+                    // TODO: Launch new ReportActivity
+
+                }
             }
         }
-        dataChannel.resetBuffer()
     }
 
     private fun getDataRateBytes(bytes: Int) {
@@ -890,7 +915,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         private var mTimestampIdxMPU = 0
         //RSSI:
         private val RSSI_UPDATE_TIME_INTERVAL = 2000
-        var mSSVEPClass = 0.0
         //Save Data File
         private var mPrimarySaveDataFile: SaveDataFile? = null
         private var mTensorflowOutputsSaveFile: SaveDataFile? = null

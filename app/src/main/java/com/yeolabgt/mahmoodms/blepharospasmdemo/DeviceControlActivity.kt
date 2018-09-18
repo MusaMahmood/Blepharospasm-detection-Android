@@ -23,7 +23,6 @@ import android.support.v4.content.FileProvider
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -89,7 +88,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private var mRunClassifyRoutine: Boolean = false
     private var mStimulusDelaySeconds = 0.0
     private lateinit var mMediaBeep: MediaPlayer // Sound
-
+    private var numberOfClassifications = 0
+    // Key feature arrays
+    private val keyFeatureArray2d = Array(6) {FloatArray(60)}
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
@@ -107,24 +108,24 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             mTensorFlowInferenceInterface!!.run(mOutputScoresNames)
             mTensorFlowInferenceInterface!!.fetch(OUTPUT_DATA_FEED_KEY, outputProbabilities)
             // Save outputProbabilities
-            val p2p = jgetp2p(ecgRawDoubles)  // Filters and measures p2p.
+            val p2p = jgetp2p(ecgRawDoubles)*1000.0  // Filters and measures p2p.
             val outputProbReshaped = jrearrange3c(outputProbabilities)
             val classResults = jgetClassBleph3c(outputProbReshaped)
             val outputClass = classResults[3]
-            var severity = 0.0
+            var severity = 0.0f
             if (outputClass == 1.0.toFloat()) {
                 val numberBlinks = jgetNumberBlinks(inputArray)
                 when {
-                    numberBlinks in 5.0..7.0 -> severity = 1.0
-                    numberBlinks in 8.0..11.0 -> severity = 2.0
-                    numberBlinks > 12 -> severity = 3.0
+                    numberBlinks in 5.0..7.0 -> severity = 1.0f
+                    numberBlinks in 8.0..11.0 -> severity = 2.0f
+                    numberBlinks > 12 -> severity = 3.0f
                 }
             } else if (outputClass == 2.0.toFloat()) {
                 val waveletEnergy = jgetWaveletEnergy(inputArray)
                 when (waveletEnergy > 100) {
-                    waveletEnergy < 400.0 -> severity = 1.0
-                    waveletEnergy in 400.0..950.0 -> severity = 2.0
-                    waveletEnergy > 950.0 -> severity = 3.0
+                    waveletEnergy < 400.0 -> severity = 1.0f
+                    waveletEnergy in 400.0..950.0 -> severity = 2.0f
+                    waveletEnergy > 950.0 -> severity = 3.0f
                 }
             }
             /*
@@ -133,14 +134,14 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 2 -> Eye Spasms
                     -> May be with or without Apraxia
              */
-            val classificationOutputString = "p2p: %4.4f".format(p2p*1000) + "mV\n" +
+            val classificationOutputString = "p2p: %4.4f".format(p2p) + "mV\n" +
                     "Output Scores:\n" +
                     "Normal: %1.2f \n".format(classResults[0]/2000.0) +
                     "Pathological Blinking: %1.2f \n".format(classResults[1]/2000.0) +
                     "Blepharospasm: %1.2f \n".format(classResults[2]/2000.0) +
                     "Output Class: ${classResults[3]} \n" +
                     "Severity Level: $severity"
-            Log.e(TAG, "OutputArray: ${Arrays.toString(classResults)}")
+            Log.e(TAG, "OutputArray: ${Arrays.toString(classResults)}\n")
             runOnUiThread {
                 classifyResults.text = classificationOutputString
             }
@@ -152,7 +153,18 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             System.arraycopy(outputProbReshaped, 2000, outputProbClass1, 0, 2000)
             System.arraycopy(outputProbReshaped, 4000, outputProbClass2, 0, 2000)
             // Save data:
-            mTensorflowOutputsSaveFile?.writeToDiskFloat(inputArray, outputProbClass0, outputProbClass1, outputProbClass2)
+            keyFeatureArray2d[0][numberOfClassifications] = p2p.toFloat()
+            keyFeatureArray2d[1][numberOfClassifications] = classResults[0]/2000.0f
+            keyFeatureArray2d[2][numberOfClassifications] = classResults[1]/2000.0f
+            keyFeatureArray2d[3][numberOfClassifications] = classResults[2]/2000.0f
+            keyFeatureArray2d[4][numberOfClassifications] = classResults[3]
+            keyFeatureArray2d[5][numberOfClassifications] = severity
+            numberOfClassifications++
+            Log.e(TAG, "numberOfClassifications = $numberOfClassifications")
+            if (numberOfClassifications == 59) {
+                mTensorflowOutputsSaveFile?.writeToDiskFloat(keyFeatureArray2d[0], keyFeatureArray2d[1],
+                        keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
+            }
         }
     }
 

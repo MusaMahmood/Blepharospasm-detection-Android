@@ -92,7 +92,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private var numberOfClassifications = 0
     // Key feature arrays
     private val keyFeatureArray2d = Array(8) {FloatArray(60)}
-    private var blephReportString: String = ""
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
@@ -168,6 +167,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             numberOfClassifications++
             Log.e(TAG, "numberOfClassifications = $numberOfClassifications")
             if (numberOfClassifications == 59) {
+                disconnectAllBLE()
                 mTensorflowOutputsSaveFile?.writeToDiskFloat(keyFeatureArray2d[0], keyFeatureArray2d[1],
                         keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
                 // TODO: Run analysis and
@@ -180,6 +180,32 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 // Idx 4: Avg. Severity of Pathological Blinking
                 // Idx 5: Avg. Severity of Blepharospasm
                 // Idx 6: Probability of Apraxia (TODO: This is always zero!~)
+                var symptoms = "none"
+                var apraxiaSeverity = "\n"
+                // Need to add "Apraxia Severity: ${Mild | Severe} \n"
+                if (responseArray[3] == 1.0) {
+                    symptoms = "Pathological Blinking"
+                } else if (responseArray[3] == 2.0) {
+                    symptoms = "Blepharospasm"
+                }
+
+                if (responseArray[5] != 0.0) {
+                    responseArray[6] = 1.0
+                    apraxiaSeverity = if (responseArray[5] > 1.8) {
+                        "Apraxia Severity: Severe \n"
+                    } else  {
+                        "Apraxia Severity: Mild \n"
+                    }
+                }
+                val outputString = "Detection of Apraxia: ${responseArray[6]} \n" +
+                        apraxiaSeverity +
+                        "Primary Symptom: " + symptoms + "\n\n" +
+                        "Pathological Blinking Occurence: %1.2f%% \n".format(responseArray[1]/59.0f) +
+                        "Blepharospasm Blinking Occurence: %1.2f%% \n\n".format(responseArray[2]/59.0f) +
+                        "For Technician Use:\nClassifier Output After Min: ${Arrays.toString(responseArray)}"
+                val intent = Intent(this@DeviceControlActivity, ClassificationSummaryActivity::class.java)
+                intent.putExtra("blepharospasm_diagnosis", outputString)
+                startActivity(intent)
             }
         }
     }
@@ -711,18 +737,13 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val second = dataPoints / mSampleRate
             val mSDS = mStimulusDelaySeconds.toInt()
             Log.d(TAG, "mSDS:" + mSDS.toString() + " second: " + second.toString())
-            if (second % mSDS == 0) mMediaBeep.start()
+            if (second <= 60) {
+                if (second % mSDS == 0) mMediaBeep.start()
+            }
             if (second % 2 == 0 && second > 3) {
                 //Run Classification:
                 val classifyTaskThread = Thread(mClassifyThread)
                 classifyTaskThread.start()
-            }
-            when {
-                (second == 24 * mSDS) -> {
-                    // 2 mins pass (5s * 24)
-                    disconnectAllBLE()
-                    // TODO: Launch new ReportActivity With Report.
-                }
             }
         }
     }

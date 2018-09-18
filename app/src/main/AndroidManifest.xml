@@ -50,5 +50,10 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.yeolabgt.mahmoodms.blepharospasmdemo.DeviceControlActivity" />
         </activity>
+        <activity android:name=".ClassificationSummaryActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.yeolabgt.mahmoodms.blepharospasmdemo.DeviceControlActivity" />
+        </activity>
     </application>
 </manifest>

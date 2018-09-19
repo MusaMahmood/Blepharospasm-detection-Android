@@ -200,9 +200,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 val outputString = "Detection of Apraxia: ${responseArray[6]} \n" +
                         apraxiaSeverity +
                         "Primary Symptom: " + symptoms + "\n\n" +
-                        "Pathological Blinking Occurence: %1.2f%% \n".format(responseArray[1]/59.0f) +
-                        "Blepharospasm Blinking Occurence: %1.2f%% \n\n".format(responseArray[2]/59.0f) +
-                        "For Technician Use:\nClassifier Output After Min: ${Arrays.toString(responseArray)}"
+                        "Pathological Blinking Occurence: %1.2f%% \n".format(100f*responseArray[1]/59.0f) +
+                        "Blepharospasm Blinking Occurence: %1.2f%% \n\n".format(100f*responseArray[2]/59.0f) +
+                        "For Technician Use:\n ${Arrays.toString(responseArray)}"
                 val intent = Intent(this@DeviceControlActivity, ClassificationSummaryActivity::class.java)
                 intent.putExtra("blepharospasm_diagnosis", outputString)
                 startActivity(intent)

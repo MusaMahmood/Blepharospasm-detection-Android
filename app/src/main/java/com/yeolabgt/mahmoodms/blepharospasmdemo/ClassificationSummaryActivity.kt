@@ -11,7 +11,8 @@ class ClassificationSummaryActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.classification_summary)
         val intent = intent
-        val requestedDataString = "Summary:" + intent.extras.getString("blepharospasm_diagnosis")
+        val requestedDataString = "Summary: \n\n" +
+                intent.extras.getString("blepharospasm_diagnosis")
         //TODO: SET TEXT STRING.
         bleph_summary.text = requestedDataString
         bleph_summary.textSize = 22.0f

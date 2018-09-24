@@ -91,7 +91,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private lateinit var mMediaBeep: MediaPlayer // Sound
     private var numberOfClassifications = 0
     // Key feature arrays
-    private val keyFeatureArray2d = Array(8) {FloatArray(60)}
+    private val keyFeatureArray2d = Array(8) { FloatArray(60) }
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
@@ -109,7 +109,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             mTensorFlowInferenceInterface!!.run(mOutputScoresNames)
             mTensorFlowInferenceInterface!!.fetch(OUTPUT_DATA_FEED_KEY, outputProbabilities)
             // Save outputProbabilities
-            val p2p = jgetp2p(ecgRawDoubles)*1000.0  // Filters and measures p2p.
+            val p2p = jgetp2p(ecgRawDoubles) * 1000.0  // Filters and measures p2p.
             val outputProbReshaped = jrearrange3c(outputProbabilities)
             val classResults = jgetClassBleph3c(outputProbReshaped)
             val outputClass = classResults[3]
@@ -139,9 +139,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
              */
             val classificationOutputString = "p2p: %4.4f".format(p2p) + "mV\n" +
                     "Output Scores:\n" +
-                    "Normal: %1.2f \n".format(classResults[0]/2000.0) +
-                    "Pathological Blinking: %1.2f \n".format(classResults[1]/2000.0) +
-                    "Blepharospasm: %1.2f \n".format(classResults[2]/2000.0) +
+                    "Normal: %1.2f \n".format(classResults[0] / 2000.0) +
+                    "Pathological Blinking: %1.2f \n".format(classResults[1] / 2000.0) +
+                    "Blepharospasm: %1.2f \n".format(classResults[2] / 2000.0) +
                     "Output Class: ${classResults[3]} \n" +
                     "Severity Level: $severity"
             Log.e(TAG, "OutputArray: ${Arrays.toString(classResults)}\n")
@@ -157,9 +157,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             System.arraycopy(outputProbReshaped, 4000, outputProbClass2, 0, 2000)
             // Save data:
             keyFeatureArray2d[0][numberOfClassifications] = p2p.toFloat()
-            keyFeatureArray2d[1][numberOfClassifications] = classResults[0]/2000.0f
-            keyFeatureArray2d[2][numberOfClassifications] = classResults[1]/2000.0f
-            keyFeatureArray2d[3][numberOfClassifications] = classResults[2]/2000.0f
+            keyFeatureArray2d[1][numberOfClassifications] = classResults[0] / 2000.0f
+            keyFeatureArray2d[2][numberOfClassifications] = classResults[1] / 2000.0f
+            keyFeatureArray2d[3][numberOfClassifications] = classResults[2] / 2000.0f
             keyFeatureArray2d[4][numberOfClassifications] = classResults[3]
             keyFeatureArray2d[5][numberOfClassifications] = severity
             keyFeatureArray2d[6][numberOfClassifications] = numberBlinks.toFloat()
@@ -193,15 +193,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                     responseArray[6] = 1.0
                     apraxiaSeverity = if (responseArray[5] > 1.8) {
                         "Apraxia Severity: Severe \n"
-                    } else  {
+                    } else {
                         "Apraxia Severity: Mild \n"
                     }
                 }
                 val outputString = "Detection of Apraxia: ${responseArray[6]} \n" +
                         apraxiaSeverity +
                         "Primary Symptom: " + symptoms + "\n\n" +
-                        "Pathological Blinking Occurence: %1.2f%% \n".format(100f*responseArray[1]/59.0f) +
-                        "Blepharospasm Blinking Occurence: %1.2f%% \n\n".format(100f*responseArray[2]/59.0f) +
+                        "Pathological Blinking Occurence: %1.2f%%".format(100f * responseArray[1] / 59.0f) +
+                        ", severity ${Math.round(responseArray[4])} \n" +
+                        "Blepharospasm Blinking Occurence: %1.2f%%".format(100f * responseArray[2] / 59.0f) +
+                        ", severity ${Math.round(responseArray[5])} \n\n\n" +
                         "For Technician Use:\n ${Arrays.toString(responseArray)}"
                 val intent = Intent(this@DeviceControlActivity, ClassificationSummaryActivity::class.java)
                 intent.putExtra("blepharospasm_diagnosis", outputString)
@@ -282,13 +284,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         mMediaBeep = MediaPlayer.create(this, R.raw.beep_01a)
         mLastTime = System.currentTimeMillis()
         //UI Listeners
-//        mChannelSelect = findViewById(R.id.toggleButtonGraph)
-//        mChannelSelect!!.setOnCheckedChangeListener { _, b ->
-//            mGraphAdapterCh1!!.clearPlot()
-//            mGraphAdapterCh2!!.clearPlot()
-//            mGraphAdapterCh1!!.plotData = b
-//            mGraphAdapterCh2!!.plotData = b
-//        }
         mExportButton.setOnClickListener { exportData() }
         // Tensorflow Switch
         tensorflowClassificationSwitch.setOnCheckedChangeListener { _, b ->
@@ -394,7 +389,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             mPacketBuffer = mSampleRate / 250
             Log.e(TAG, "mSampleRate: " + mSampleRate + "Hz")
             if (!mGraphInitializedBoolean) setupGraph()
-//            mPrimarySaveDataFile = null
             createNewFile()
         }
         mBleInitializedBoolean = true
@@ -417,7 +411,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         val fileNameTimeStamped2 = "EOG_classify_" + mTimeStamp + "_" + mSampleRate.toString() + "Hz"
         if (mTensorflowOutputsSaveFile == null) {
             Log.e(TAG, "fileTimeStamp: $fileNameTimeStamped2")
-            mTensorflowOutputsSaveFile = SaveDataFile(directory2, fileNameTimeStamped2, 24, 1.toDouble()/ mSampleRate,
+            mTensorflowOutputsSaveFile = SaveDataFile(directory2, fileNameTimeStamped2, 24, 1.toDouble() / mSampleRate,
                     saveTimestamps = false, includeClass = false)
         }
     }
@@ -666,7 +660,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             mCh1!!.handleNewData(mNewEEGdataBytes)
             addToGraphBuffer(mCh1!!, mGraphAdapterCh1)
             mPrimarySaveDataFile!!.writeToDisk(mCh1!!.characteristicDataPacketBytes)
-            // For every 2000 dp recieved, run classification model.
+            // For every 2000 dp received, run classification model.
         }
 
         if (AppConstant.CHAR_EEG_CH2_SIGNAL == characteristic.uuid) {
@@ -677,7 +671,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val dataMPU = characteristic.value
             getDataRateBytes2(dataMPU.size) //+=240
             mMPU!!.handleNewData(dataMPU)
-//            addToGraphBufferMPU(mMPU!!)
             mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
             if (mSaveFileMPU!!.mLinesWrittenCurrentFile > 1048576) {
                 mSaveFileMPU!!.terminateDataFileWriter()
@@ -928,10 +921,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
     private external fun jecgFiltRescale(data: DoubleArray): FloatArray
 
-//    private external fun jgetClassBleph(data: FloatArray): FloatArray
-
-//    private external fun jrearrange4c(data: FloatArray): FloatArray
-
     private external fun jgetClassBleph3c(data: FloatArray): FloatArray
 
     private external fun jrearrange3c(data: FloatArray): FloatArray
@@ -965,6 +954,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         // Tensorflow Constants:
         private const val INPUT_DATA_FEED_KEY = "input_1"
         private const val OUTPUT_DATA_FEED_KEY = "conv1d_8/truediv"
+
         init {
             System.loadLibrary("ecg-lib")
         }

@@ -686,7 +686,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             graphAdapter?.setSeriesHistoryDataPoints(graphBufferLength)
             val filteredData = jecgBandStopFilter(filterArray)
             graphAdapter!!.clearPlot()
-
             for (i in filteredData.indices) { // gA.addDataPointTimeDomain(y,x)
                 graphAdapter.addDataPointTimeDomainAlt(filteredData[i], dataChannel.totalDataPointsReceived - (graphBufferLength - 1) + i)
             }
@@ -737,6 +736,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 //Run Classification:
                 val classifyTaskThread = Thread(mClassifyThread)
                 classifyTaskThread.start()
+            }
+            if (second == 30) {
+                //
             }
         }
     }

@@ -13,6 +13,7 @@
 #include "count_blinks.h"
 #include "get_intensity.h"
 #include "bleph_analyze_data.h"
+#include "bsp_ftex.h"
 
 /*Additional Includes*/
 #include <jni.h>
@@ -25,11 +26,25 @@ extern "C" {
 JNIEXPORT jdoubleArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jblephAnalyze(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
     double Y[7];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jdoubleArray m_result = env->NewDoubleArray(7);
     bleph_analyze_data(X, &Y[0], &Y[3]);
+    env->SetDoubleArrayRegion(m_result, 0, 7, Y);
+    return m_result;
+}
+}
+
+extern "C" {
+JNIEXPORT jdoubleArray JNICALL
+Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jblephAnalyze2(
+        JNIEnv *env, jobject jobject1, jdoubleArray data) {
+    jdouble *X = env->GetDoubleArrayElements(data, nullptr);
+    double Y[7];
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
+    jdoubleArray m_result = env->NewDoubleArray(7);
+    bsp_ftex(X, Y);
     env->SetDoubleArrayRegion(m_result, 0, 7, Y);
     return m_result;
 }
@@ -39,9 +54,9 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jecgFiltRescale(
         JNIEnv *env, jobject jobject1, jdoubleArray data) {
-    jdouble *X = env->GetDoubleArrayElements(data, NULL);
+    jdouble *X = env->GetDoubleArrayElements(data, nullptr);
     float Y[2000];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jfloatArray m_result = env->NewFloatArray(2000);
     ecg_filt_rescale(X, Y);
     env->SetFloatArrayRegion(m_result, 0, 2000, Y);
@@ -53,8 +68,8 @@ extern "C" {
 JNIEXPORT jdouble JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jgetWaveletEnergy(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     return get_intensity(X);
 }
 }
@@ -63,8 +78,8 @@ extern "C" {
 JNIEXPORT jdouble JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jgetNumberBlinks(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     return count_blinks(X);
 }
 }
@@ -73,8 +88,8 @@ extern "C" {
 JNIEXPORT jdouble JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jgetp2p(
         JNIEnv *env, jobject jobject1, jdoubleArray data) {
-    jdouble *X = env->GetDoubleArrayElements(data, NULL);
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    jdouble *X = env->GetDoubleArrayElements(data, nullptr);
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     return get_p2p(X);
 }
 }
@@ -83,9 +98,9 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jrearrange3c(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
     float Y[6000];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jfloatArray m_result = env->NewFloatArray(6000);
     rearrange_3c(X, Y);
     env->SetFloatArrayRegion(m_result, 0, 6000, Y);
@@ -97,9 +112,9 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jrearrange4c(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
     float Y[8000];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jfloatArray m_result = env->NewFloatArray(8000);
     rearrange_4c(X, Y);
     env->SetFloatArrayRegion(m_result, 0, 8000, Y);
@@ -111,10 +126,10 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jgetClassBleph3c(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
     double y = 0;
     float Y[4];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS nullptr");
     jfloatArray m_result = env->NewFloatArray(4);
     get_class_bleph_3c(X, &y, Y);
     Y[3] = (float) y;
@@ -127,10 +142,10 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jgetClassBleph(
         JNIEnv *env, jobject jobject1, jfloatArray data) {
-    jfloat *X = env->GetFloatArrayElements(data, NULL);
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
     double y = 0;
     float Y[5];
-    if (X == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jfloatArray m_result = env->NewFloatArray(5);
     get_class_bleph(X, &y, Y);
     Y[4] = (float) y;
@@ -143,9 +158,9 @@ extern "C" {
 JNIEXPORT jdoubleArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jecgBandStopFilter(
         JNIEnv *env, jobject jobject1, jdoubleArray data) {
-    jdouble *X1 = env->GetDoubleArrayElements(data, NULL);
+    jdouble *X1 = env->GetDoubleArrayElements(data, nullptr);
     double Y[1000]; // First two values = Y; last 499 = cPSD
-    if (X1 == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X1 == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jdoubleArray m_result = env->NewDoubleArray(1000);
     ecg_bandstop_250Hz(X1, Y);
     env->SetDoubleArrayRegion(m_result, 0, 1000, Y);
@@ -158,11 +173,11 @@ extern "C" {
 JNIEXPORT jdoubleArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jdownSample(
         JNIEnv *env, jobject jobject1, jdoubleArray data, jint Fs) {
-    jdouble *X1 = env->GetDoubleArrayElements(data, NULL);
+    jdouble *X1 = env->GetDoubleArrayElements(data, nullptr);
     int Xsize[1] = {Fs*4};
     double Y[1000]; // First two values = Y; last 499 = cPSD
     int Ysize[2]; // First two values = Y; last 499 = cPSD
-    if (X1 == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X1 == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jdoubleArray m_result = env->NewDoubleArray(1000);
     downsample_250Hz(X1, Xsize, Fs, &Y[0], Ysize);
     env->SetDoubleArrayRegion(m_result, 0, 1000, Y);
@@ -175,9 +190,9 @@ extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jSSVEPCfilter(
         JNIEnv *env, jobject jobject1, jdoubleArray data) {
-    jdouble *X1 = env->GetDoubleArrayElements(data, NULL);
+    jdouble *X1 = env->GetDoubleArrayElements(data, nullptr);
     float Y[1000]; // First two values = Y; last 499 = cPSD
-    if (X1 == NULL) LOGE("ERROR - C_ARRAY IS NULL");
+    if (X1 == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
     jfloatArray m_result = env->NewFloatArray(1000);
     ssvep_filter_f32(X1, Y);
     env->SetFloatArrayRegion(m_result, 0, 1000, Y);

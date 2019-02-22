@@ -92,11 +92,22 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private var numberOfClassifications = 0
     // Key feature arrays
     private val keyFeatureArray2d = Array(8) { FloatArray(60) }
+    private var runOnce = true
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
 
     fun Double.format(digits: Int): String = java.lang.String.format("%.${digits}f", this)
+
+    private val mClassifyThreadNew = Runnable {
+        val ecgRaw = mCh1!!.classificationBuffer
+        val outputArray = jblephAnalyze2(ecgRaw)
+        Log.e(TAG, "Classification Output: ${Arrays.toString(outputArray)}")
+        runOnUiThread {
+            val s = "Classification Output: ${Arrays.toString(outputArray)}"
+            classifyResults.text = s
+        }
+    }
 
     private val mClassifyThread = Runnable {
         if (mTFRunModel) {
@@ -136,7 +147,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 1 -> Pathological Blinking
                 2 -> Eye Spasms
                     -> May be with or without Apraxia
-             */
+            */
             val classificationOutputString = "p2p: %4.4f".format(p2p) + "mV\n" +
                     "Output Scores:\n" +
                     "Normal: %1.2f \n".format(classResults[0] / 2000.0) +
@@ -400,7 +411,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         if (mPrimarySaveDataFile == null) {
             Log.e(TAG, "fileTimeStamp: $fileNameTimeStamped")
             mPrimarySaveDataFile = SaveDataFile(directory, fileNameTimeStamped,
-                    24, 1.toDouble() / mSampleRate, true, false)
+                    24, 1.toDouble() / mSampleRate, saveTimestamps = true, includeClass = false)
         } else if (!mPrimarySaveDataFile!!.initialized) {
             Log.e(TAG, "New Filename: $fileNameTimeStamped")
             mPrimarySaveDataFile?.createNewFile(directory, fileNameTimeStamped)
@@ -422,7 +433,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         if (mSaveFileMPU == null) {
             Log.e(TAG, "fileTimeStamp: $fileNameTimeStamped")
             mSaveFileMPU = SaveDataFile(directory, fileNameTimeStamped,
-                    16, 0.032, true, false)
+                    16, 0.032, saveTimestamps = true, includeClass = false)
         } else if (!mSaveFileMPU!!.initialized) {
             Log.e(TAG, "New Filename: $fileNameTimeStamped")
             mSaveFileMPU?.createNewFile(directory, fileNameTimeStamped)
@@ -644,8 +655,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
         if (mCh1 == null || mCh2 == null) {
-            mCh1 = DataChannel(false, mMSBFirst, 8 * mSampleRate)
-            mCh2 = DataChannel(false, mMSBFirst, 8 * mSampleRate)
+            mCh1 = DataChannel(false, mMSBFirst, 40 * mSampleRate)
+            mCh2 = DataChannel(false, mMSBFirst, 40 * mSampleRate)
         }
 
         if (AppConstant.CHAR_BATTERY_LEVEL == characteristic.uuid) {
@@ -728,13 +739,14 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         if (dataPoints % mSampleRate == 0) {
             val second = dataPoints / mSampleRate
             val mSDS = mStimulusDelaySeconds.toInt()
-            Log.d(TAG, "mSDS:" + mSDS.toString() + " second: " + second.toString())
+            Log.d(TAG, "mSDS:$mSDS second: $second")
             if (second <= 60) {
                 if (second % mSDS == 0) mMediaBeep.start()
             }
-            if (second % 2 == 0 && second > 3) {
+            if (second > 40 && runOnce) {
                 //Run Classification:
-                val classifyTaskThread = Thread(mClassifyThread)
+                runOnce = false
+                val classifyTaskThread = Thread(mClassifyThreadNew)
                 classifyTaskThread.start()
             }
             if (second == 30) {
@@ -750,9 +762,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             dataRate = (points / 5).toDouble()
             points = 0
             mLastTime = mCurrentTime
-            Log.e(" DataRate:", dataRate.toString() + " Bytes/s")
+            Log.e(" DataRate:", "$dataRate Bytes/s")
             runOnUiThread {
-                val s = dataRate.toString() + " Bytes/s"
+                val s = "$dataRate Bytes/s"
                 mDataRate!!.text = s
             }
         }
@@ -765,7 +777,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val datarate2 = (points2 / 3).toDouble()
             points2 = 0
             mLastTime2 = mCurrentTime
-            Log.e(" DataRate 2(MPU):", datarate2.toString() + " Bytes/s")
+            Log.e(" DataRate 2(MPU):", "$datarate2 Bytes/s")
         }
     }
 
@@ -934,6 +946,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     private external fun jgetWaveletEnergy(data: FloatArray): Double
 
     private external fun jblephAnalyze(data: FloatArray): DoubleArray
+
+    private external fun jblephAnalyze2(data: DoubleArray): DoubleArray
+
+
 
     companion object {
         const val HZ = "0 Hz"

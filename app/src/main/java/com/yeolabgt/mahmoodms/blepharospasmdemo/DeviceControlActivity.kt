@@ -49,7 +49,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     // Graphing Variables:
     private var mGraphInitializedBoolean = false
     private var mGraphAdapterCh1: GraphAdapter? = null
-    private var mGraphAdapterCh2: GraphAdapter? = null
+    private var mGraphAdapterClass0: GraphAdapter? = null
+    private var mGraphAdapterClass1: GraphAdapter? = null
+    private var mGraphAdapterClass2: GraphAdapter? = null
     private var mTimeDomainPlotAdapterCh1: XYPlotAdapter? = null
     //Device Information
     private var mBleInitializedBoolean = false
@@ -93,6 +95,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     // Key feature arrays
     private val keyFeatureArray2d = Array(8) { FloatArray(60) }
     private var runOnce = true
+    private var mCurrentIndex = 0
 
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
@@ -100,12 +103,42 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     fun Double.format(digits: Int): String = java.lang.String.format("%.${digits}f", this)
 
     private val mClassifyThreadNew = Runnable {
-        val ecgRaw = mCh1!!.classificationBuffer
-        val outputArray = jblephAnalyze2(ecgRaw)
-        Log.e(TAG, "Classification Output: ${Arrays.toString(outputArray)}")
+        val doublesRaw = mCh1!!.classificationBuffer
+        val outputProbabilities = FloatArray(2000 * 3)
+//        val ecgRawDoublesCrop = DoubleArray(2000)
+//        System.arraycopy(doublesRaw, mCh1!!.classificationBuffer.size-2000, ecgRawDoublesCrop, 0, 2000)
+        // TODO: TEMP PREPROCESS METHOD: Update to 0.2 Hz HPF + [0, 1] rescale.
+        val inputArray = jbspFiltRescale(doublesRaw)
+        mTensorFlowInferenceInterface!!.feed(INPUT_DATA_FEED_KEY, inputArray, 1L, mTensorflowInputXDim, mTensorflowInputYDim)
+        mTensorFlowInferenceInterface!!.run(mOutputScoresNames)
+        mTensorFlowInferenceInterface!!.fetch(OUTPUT_DATA_FEED_KEY, outputProbabilities)
+        Log.e(TAG, "OutputArray.size: ${outputProbabilities.size}")
+        val outputProbReshaped = jrearrange3c(outputProbabilities)
+        val outputProbsSmoothed = jreturnSmoothedLabels(outputProbReshaped)
+        // Distribute across FloatArrays:
+        val outputProbClass0 = FloatArray(2000)
+        val outputProbClass1 = FloatArray(2000)
+        val outputProbClass2 = FloatArray(2000)
+        System.arraycopy(outputProbsSmoothed, 0, outputProbClass0, 0, 2000)
+        System.arraycopy(outputProbsSmoothed, 2000, outputProbClass1, 0, 2000)
+        System.arraycopy(outputProbsSmoothed, 4000, outputProbClass2, 0, 2000)
+        // TODO: Analyse non-blink symptoms.
+//        val outputArray = jblephAnalyze2(ecgRaw)
         runOnUiThread {
-            val s = "Classification Output: ${Arrays.toString(outputArray)}"
-            classifyResults.text = s
+            addToGraphBuffer(mGraphAdapterCh1!!, inputArray, mCurrentIndex)
+            addToGraphBuffer(mGraphAdapterClass0!!, outputProbClass0, mCurrentIndex)
+            addToGraphBuffer(mGraphAdapterClass1!!, outputProbClass1, mCurrentIndex)
+            addToGraphBuffer(mGraphAdapterClass2!!, outputProbClass2, mCurrentIndex)
+//            val s = "Classification Output: ${Arrays.toString(outputArray)}"
+//            classifyResults.text = s
+        }
+    }
+
+    private fun addToGraphBuffer(graphAdapter: GraphAdapter, data: FloatArray, tStart: Int) {
+        var t = tStart
+        for (f in data) {
+            graphAdapter.addDataPointTimeDomain(f.toDouble(), t)
+            t += 1
         }
     }
 
@@ -181,7 +214,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 disconnectAllBLE()
                 mTensorflowOutputsSaveFile?.writeToDiskFloat(keyFeatureArray2d[0], keyFeatureArray2d[1],
                         keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
-                // TODO: Run analysis and
                 val combinedArrayConcat = Floats.concat(keyFeatureArray2d[0], keyFeatureArray2d[1],
                         keyFeatureArray2d[2], keyFeatureArray2d[3], keyFeatureArray2d[4], keyFeatureArray2d[5])
                 val responseArray = jblephAnalyze(combinedArrayConcat)
@@ -190,7 +222,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 // Idx 3: Condition Most Prevalent
                 // Idx 4: Avg. Severity of Pathological Blinking
                 // Idx 5: Avg. Severity of Blepharospasm
-                // Idx 6: Probability of Apraxia (TODO: This is always zero!~)
+                // Idx 6: Probability of Apraxia (This is always zero!~)
                 var symptoms = "none"
                 var apraxiaSeverity = "\n"
                 // Need to add "Apraxia Severity: ${Mild | Severe} \n"
@@ -224,7 +256,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     }
 
     private fun enableTensorflowModel() {
-        val classificationModelBinary = "opt_k3_bleph_annotate.pb"
+        val classificationModelBinary = "opt_bleph_anno_3c4.pb"
         val classificationModelPath = Environment.getExternalStorageDirectory().absolutePath +
                 "/Download/tensorflow_assets/bleph_classify/" + classificationModelBinary
         Log.e(TAG, "Tensorflow classification Model Path: $classificationModelPath")
@@ -442,23 +474,30 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
     private fun setupGraph() {
         // Initialize our XYPlot reference:
-        mGraphAdapterCh1 = GraphAdapter(1250, "ECG Data Ch 1", false, Color.BLUE) //Color.parseColor("#19B52C") also, RED, BLUE, etc.
-        mGraphAdapterCh2 = GraphAdapter(1250, "ECG Data Ch 2", false, Color.RED) //Color.parseColor("#19B52C") also, RED, BLUE, etc.
-        //PLOT CH1 By default
-        mGraphAdapterCh1!!.setPointWidth(2.toFloat())
-        mGraphAdapterCh2!!.setPointWidth(2.toFloat())
+        mGraphAdapterCh1 = GraphAdapter(2000, "ECG Data Ch 1", false, Color.BLUE) //Color.parseColor("#19B52C") also, RED, BLUE, etc.
+        mGraphAdapterClass0 = GraphAdapter(2000, "C0", false, Color.GREEN)
+        mGraphAdapterClass1 = GraphAdapter(2000, "C1", false, Color.RED)
+        mGraphAdapterClass2 = GraphAdapter(2000, "C2", false, Color.CYAN)
+
         mTimeDomainPlotAdapterCh1 = XYPlotAdapter(findViewById(R.id.ecgTimeDomainXYPlot), false, if (mSampleRate < 1000) 4 * mSampleRate else 2000)
         mTimeDomainPlotAdapterCh1?.xyPlot?.addSeries(mGraphAdapterCh1!!.series, mGraphAdapterCh1!!.lineAndPointFormatter)
+        mTimeDomainPlotAdapterCh1?.xyPlot!!.addSeries(mGraphAdapterClass0?.series, mGraphAdapterClass0?.lineAndPointFormatter)
+        mTimeDomainPlotAdapterCh1?.xyPlot!!.addSeries(mGraphAdapterClass1?.series, mGraphAdapterClass1?.lineAndPointFormatter)
+        mTimeDomainPlotAdapterCh1?.xyPlot!!.addSeries(mGraphAdapterClass2?.series, mGraphAdapterClass2?.lineAndPointFormatter)
+
         val xyPlotList = listOf(mTimeDomainPlotAdapterCh1?.xyPlot)
         mRedrawer = Redrawer(xyPlotList, 30f, false)
         mRedrawer!!.start()
         mGraphInitializedBoolean = true
 
+        //PLOT CH1 By default
         mGraphAdapterCh1!!.setxAxisIncrementFromSampleRate(mSampleRate)
-        mGraphAdapterCh2!!.setxAxisIncrementFromSampleRate(mSampleRate)
-
-        mGraphAdapterCh1!!.setSeriesHistoryDataPoints(1250)
-        mGraphAdapterCh2!!.setSeriesHistoryDataPoints(1250)
+        mGraphAdapterClass0!!.setxAxisIncrementFromSampleRate(mSampleRate)
+        mGraphAdapterClass0?.setPointWidth(8f)
+        mGraphAdapterClass1!!.setxAxisIncrementFromSampleRate(mSampleRate)
+        mGraphAdapterClass1?.setPointWidth(8f)
+        mGraphAdapterClass2!!.setxAxisIncrementFromSampleRate(mSampleRate)
+        mGraphAdapterClass2?.setPointWidth(8f)
     }
 
     private fun setNameAddress(name_action: String?, address_action: String?) {
@@ -573,7 +612,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             mTimeDomainPlotAdapterCh1!!.xyPlot?.redraw()
             mChannelSelect!!.isChecked = chSel
             mGraphAdapterCh1!!.plotData = chSel
-            mGraphAdapterCh2!!.plotData = chSel
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
@@ -655,8 +693,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
         if (mCh1 == null || mCh2 == null) {
-            mCh1 = DataChannel(false, mMSBFirst, 40 * mSampleRate)
-            mCh2 = DataChannel(false, mMSBFirst, 40 * mSampleRate)
+            mCh1 = DataChannel(false, mMSBFirst, 8 * mSampleRate)
+            mCh2 = DataChannel(false, mMSBFirst, 8 * mSampleRate)
         }
 
         if (AppConstant.CHAR_BATTERY_LEVEL == characteristic.uuid) {
@@ -669,9 +707,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             val mNewEEGdataBytes = characteristic.value
             getDataRateBytes(mNewEEGdataBytes.size)
             mCh1!!.handleNewData(mNewEEGdataBytes)
-            addToGraphBuffer(mCh1!!, mGraphAdapterCh1)
+//            addToGraphBuffer(mCh1!!, mGraphAdapterCh1)
             mPrimarySaveDataFile!!.writeToDisk(mCh1!!.characteristicDataPacketBytes)
             // For every 2000 dp received, run classification model.
+            if (mCh1!!.dataPointCounterClassify > 4 * mSampleRate && mCh1!!.totalDataPointsReceived > 4 * mSampleRate) {
+                Log.e(TAG, "mClassifyThread Start Time")
+                mCh1!!.resetCounterClassify()
+                mCurrentIndex = mCh1!!.totalDataPointsReceived - 2000
+                Log.e(TAG, "mCh1!!.classificationBuffer = ${mCh1!!.classificationBuffer.size}")
+                val classifyTaskThread = Thread(mClassifyThreadNew)
+                classifyTaskThread.start()
+            }
         }
 
         if (AppConstant.CHAR_EEG_CH2_SIGNAL == characteristic.uuid) {
@@ -743,15 +789,17 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             if (second <= 60) {
                 if (second % mSDS == 0) mMediaBeep.start()
             }
-            if (second > 40 && runOnce) {
-                //Run Classification:
-                runOnce = false
-                val classifyTaskThread = Thread(mClassifyThreadNew)
-                classifyTaskThread.start()
-            }
-            if (second == 30) {
-                //
-            }
+//            if (second > 40 && runOnce) {
+//                //Run Classification:
+//                runOnce = false
+//                val classifyTaskThread = Thread(mClassifyThreadNew)
+//                classifyTaskThread.start()
+//            }
+//            if (second % 4 == 0 && second >= 8) {
+//                mCurrentIndex = mCh1!!.totalDataPointsReceived - 2000
+//                val classifyTaskThread = Thread(mClassifyThread)
+//                classifyTaskThread.start()
+//            }
         }
     }
 
@@ -895,7 +943,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             125.0 / 3.0 * convertedBatteryVoltage - 75.0 < 0.0 -> 0.0
             else -> 125.0 / 3.0 * convertedBatteryVoltage - 75.0
         }
-        Log.e(TAG, "Battery Integer Value: " + integerValue.toString())
+        Log.e(TAG, "Battery Integer Value: $integerValue")
         Log.e(TAG, "ConvertedBatteryVoltage: " + String.format(Locale.US, "%.5f", convertedBatteryVoltage) + "V : " + String.format(Locale.US, "%.3f", finalPercent) + "%")
         status = String.format(Locale.US, "%.1f", finalPercent) + "%"
         runOnUiThread {
@@ -915,7 +963,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         runOnUiThread {
             val menuItem = menu!!.findItem(R.id.action_rssi)
             val statusActionItem = menu!!.findItem(R.id.action_status)
-            val valueOfRSSI = rssi.toString() + " dB"
+            val valueOfRSSI = "$rssi dB"
             menuItem.title = valueOfRSSI
             if (mConnected) {
                 val newStatus = "Status: " + getString(R.string.connected)
@@ -935,9 +983,13 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
 
     private external fun jecgFiltRescale(data: DoubleArray): FloatArray
 
+    private external fun jbspFiltRescale(data: DoubleArray): FloatArray
+
     private external fun jgetClassBleph3c(data: FloatArray): FloatArray
 
     private external fun jrearrange3c(data: FloatArray): FloatArray
+
+    private external fun jreturnSmoothedLabels(data: FloatArray): FloatArray
 
     private external fun jgetp2p(data: DoubleArray): Double
 
@@ -971,7 +1023,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         private var mSaveFileMPU: SaveDataFile? = null
         // Tensorflow Constants:
         private const val INPUT_DATA_FEED_KEY = "input_1"
-        private const val OUTPUT_DATA_FEED_KEY = "conv1d_8/truediv"
+        private const val OUTPUT_DATA_FEED_KEY = "conv1d_30/truediv"
 
         init {
             System.loadLibrary("ecg-lib")

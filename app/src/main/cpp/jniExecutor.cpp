@@ -14,6 +14,9 @@
 #include "get_intensity.h"
 #include "bleph_analyze_data.h"
 #include "bsp_ftex.h"
+#include "bsp_filt.h"
+#include "maximize_probs.h"
+#include "smooth_probs_3c.h"
 
 /*Additional Includes*/
 #include <jni.h>
@@ -21,6 +24,23 @@
 
 #define  LOG_TAG "jniExecutor-cpp"
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+extern "C" {
+JNIEXPORT jfloatArray JNICALL
+Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jreturnSmoothedLabels(
+        JNIEnv *env, jobject jobject1, jfloatArray data) {
+    jfloat *X = env->GetFloatArrayElements(data, nullptr);
+    float max_prob[6000];
+    float Y_out[6000];
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
+    jfloatArray m_result = env->NewFloatArray(6000);
+    maximize_probs(X, max_prob);
+    // Pass maximized probs to smoother:
+    smooth_probs_3c(max_prob, Y_out);
+    env->SetFloatArrayRegion(m_result, 0, 6000, Y_out);
+    return m_result;
+}
+}
 
 extern "C" {
 JNIEXPORT jdoubleArray JNICALL
@@ -46,6 +66,20 @@ Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jblephAnalyz
     jdoubleArray m_result = env->NewDoubleArray(7);
     bsp_ftex(X, Y);
     env->SetDoubleArrayRegion(m_result, 0, 7, Y);
+    return m_result;
+}
+}
+
+extern "C" {
+JNIEXPORT jfloatArray JNICALL
+Java_com_yeolabgt_mahmoodms_blepharospasmdemo_DeviceControlActivity_jbspFiltRescale(
+        JNIEnv *env, jobject jobject1, jdoubleArray data) {
+    jdouble *X = env->GetDoubleArrayElements(data, nullptr);
+    float Y[2000];
+    if (X == nullptr) LOGE("ERROR - C_ARRAY IS NULL");
+    jfloatArray m_result = env->NewFloatArray(2000);
+    bsp_filt(X, Y);
+    env->SetFloatArrayRegion(m_result, 0, 2000, Y);
     return m_result;
 }
 }

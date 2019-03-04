@@ -38,7 +38,10 @@ add_library( # Sets the name of the library.
                 src/main/cpp/get_intensity.cpp
                 src/main/cpp/bleph_analyze_data.cpp
                 src/main/cpp/bsp_ftex.cpp
+                src/main/cpp/bsp_filt.cpp
                 src/main/cpp/bsp_ftex_emxutil.cpp
+                src/main/cpp/smooth_probs_3c.cpp
+                src/main/cpp/maximize_probs.cpp
 
                 # Executor
                 src/main/cpp/jniExecutor.cpp
